@@ -1,0 +1,4 @@
+body { font-family: Arial, sans-serif; background:#f0f0f0; }
+.container { width: 80%; margin: 20px auto; background:#fff; padding:20px; border-radius:8px; }
+table { width: 100%; border-collapse: collapse; }
+table th, table td { padding:8px; border:1px solid #ccc; text-align:left; }
