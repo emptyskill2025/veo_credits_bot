@@ -1,20 +1,21 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum
-from sqlalchemy.orm import relationship, declarative_base
+# models.py
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(String, unique=True)
+    id = Column(Integer, primary_key=True)  # Telegram user ID
     username = Column(String)
-    credits = Column(Integer, default=0)
     payments = relationship("PaymentRequest", back_populates="user")
 
 class PaymentRequest(Base):
-    __tablename__ = "payments"
-    id = Column(Integer, primary_key=True)
+    __tablename__ = "payment_requests"
+    id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     credits = Column(Integer)
-    status = Column(Enum("pending", "approved", "rejected"))
+    reference = Column(String, unique=True)
+    status = Column(String, default="pending")  # pending, approved, rejected
     user = relationship("User", back_populates="payments")
