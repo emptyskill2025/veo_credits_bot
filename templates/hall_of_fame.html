@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>🏆 Hall of Fame – All-Time Top Buyers</h3>
+<table class="table table-bordered table-striped">
+  <thead><tr><th>Rank</th><th>User</th><th>Total Credits</th></tr></thead>
+  <tbody>
+    {% for idx, (username, total) in enumerate(results, 1) %}
+    <tr
+      {% if idx==1 %}style="background-color:#fff8dc;font-weight:bold"{% endif %}
+      {% if idx==2 %}style="background-color:#f8f8f8;font-weight:bold"{% endif %}
+      {% if idx==3 %}style="background-color:#f5deb3;font-weight:bold"{% endif %}
+    >
+      <td>#{{idx}}
+        {% if idx==1 %}👑🥇{% elif idx==2 %}🥈{% elif idx==3 %}🥉{% endif %}
+        {% if total>=1000 %}💎{% endif %}
+      </td>
+      <td>{{username or "Anonymous"}}</td>
+      <td>{{total}} {% if total>=1000 %}💎{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
