@@ -2,26 +2,21 @@
 import os
 import asyncio
 from flask import Flask, render_template
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
-from bot_commands import leaderboard, halloffame, badges
+from telegram.ext import ApplicationBuilder, CommandHandler
+from bot_commands import leaderboard, halloffame, badges, payinfo
 from payments import request_payment, approve_payment, reject_payment, list_pending_payments
 from db_setup import Session as DBSession
-from models import User, PaymentRequest
+from models import User
 
-# -----------------------------
-# Config
-# -----------------------------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-ADMIN_IDS = list(map(int, os.environ.get("ADMIN_IDS", "").split(",")))  # Comma-separated IDs
-DB_URL = os.environ.get("DB_URL")
+ADMIN_IDS = list(map(int, os.environ.get("ADMIN_IDS", "").split(",")))
+PORT = int(os.environ.get("PORT", 5000))
 
-# -----------------------------
-# Flask Admin Panel
-# -----------------------------
 app = Flask(__name__)
 
+# -----------------------------
+# Flask Admin Routes
+# -----------------------------
 @app.route("/")
 def home():
     return "✅ VEO Credits Bot Admin Panel is running."
@@ -29,25 +24,13 @@ def home():
 @app.route("/admin/halloffame")
 def admin_halloffame():
     with DBSession() as session:
-        results = (
-            session.query(User.username, User.id, PaymentRequest.credits)
-            .join(PaymentRequest)
-            .filter(PaymentRequest.status == "approved")
-            .all()
-        )
+        results = session.query(User.username, User.id).all()
     return render_template("hall_of_fame.html", results=results)
 
 @app.route("/admin/top-supporters")
 def admin_top_supporters():
     with DBSession() as session:
-        results = (
-            session.query(User.username, User.id, PaymentRequest.credits)
-            .join(PaymentRequest)
-            .filter(PaymentRequest.status == "approved")
-            .order_by(PaymentRequest.credits.desc())
-            .limit(10)
-            .all()
-        )
+        results = session.query(User.username, User.id).all()
     return render_template("top_supporters.html", results=results)
 
 @app.route("/admin/badges")
@@ -60,14 +43,13 @@ def admin_badges():
 async def start_bot():
     app_bot = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # Basic Commands
+    # User Commands
     app_bot.add_handler(CommandHandler("leaderboard", leaderboard))
     app_bot.add_handler(CommandHandler("halloffame", halloffame))
     app_bot.add_handler(CommandHandler("badges", badges))
+    app_bot.add_handler(CommandHandler("payinfo", payinfo))
 
-    # Payment Commands
-    async def pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """User submits GCASH payment reference."""
+    async def pay(update, context):
         if len(context.args) < 2:
             await update.message.reply_text("Usage: /pay <credits> <GCASH Reference>")
             return
@@ -77,7 +59,6 @@ async def start_bot():
             await update.message.reply_text("❌ Credits must be a number.")
             return
         reference = context.args[1]
-        # Ensure user exists
         with DBSession() as session:
             user = session.query(User).filter_by(id=update.effective_user.id).first()
             if not user:
@@ -87,8 +68,7 @@ async def start_bot():
         msg = request_payment(update.effective_user.id, credits, reference)
         await update.message.reply_text(msg)
 
-    async def admin_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Admin approves a payment."""
+    async def admin_approve(update, context):
         if update.effective_user.id not in ADMIN_IDS:
             await update.message.reply_text("❌ You are not authorized.")
             return
@@ -99,8 +79,7 @@ async def start_bot():
         msg = approve_payment(payment_id)
         await update.message.reply_text(msg)
 
-    async def admin_reject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Admin rejects a payment."""
+    async def admin_reject(update, context):
         if update.effective_user.id not in ADMIN_IDS:
             await update.message.reply_text("❌ You are not authorized.")
             return
@@ -111,8 +90,7 @@ async def start_bot():
         msg = reject_payment(payment_id)
         await update.message.reply_text(msg)
 
-    async def pending(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Admin lists pending payments."""
+    async def pending(update, context):
         if update.effective_user.id not in ADMIN_IDS:
             await update.message.reply_text("❌ You are not authorized.")
             return
@@ -125,19 +103,19 @@ async def start_bot():
             msg += f"ID: {p.id}, User: {p.user_id}, Credits: {p.credits}, Ref: {p.reference}\n"
         await update.message.reply_text(msg)
 
-    # Add Payment Handlers
-    app_bot.add_handler(CommandHandler("pay", pay))
+    # Admin Command Handlers
     app_bot.add_handler(CommandHandler("approve", admin_approve))
     app_bot.add_handler(CommandHandler("reject", admin_reject))
     app_bot.add_handler(CommandHandler("pending", pending))
+    # User payment handler
+    app_bot.add_handler(CommandHandler("pay", pay))
 
     await app_bot.run_polling()
 
-
 # -----------------------------
-# Run Both Flask and Bot
+# Run Flask + Telegram Bot
 # -----------------------------
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(start_bot())
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=PORT)
