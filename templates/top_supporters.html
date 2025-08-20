@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>💎 Top Supporters</h3>
+<table class="table table-bordered table-striped">
+<thead><tr><th>Rank</th><th>User</th><th>Total Credits</th></tr></thead>
+<tbody>
+{% for idx, (username, total) in enumerate(results,1) %}
+<tr>
+  <td>#{{idx}}</td>
+  <td>{{username or "Anonymous"}}</td>
+  <td>{{total}} 💎</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}
